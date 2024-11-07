@@ -51,7 +51,7 @@ with st.sidebar:
 
     # 모델 선택 메뉴
     selected_model = st.selectbox(
-        "LLM 선택", ["gpt-4o", "gpt-4-turbo", "gpt-4o-mini"], index=0
+        "LLM 선택", ["gpt-4o-mini", "gpt-4-turbo", "gpt-4o"], index=0
     )
 
 
@@ -97,7 +97,7 @@ def embed_file(file):
 
 
 # 체인 생성
-def create_chain(retriever, model_name="gpt-4o"):
+def create_chain(retriever, model_name="gpt-4o-mini"):
     # 단계 6: 프롬프트 생성(Create Prompt)
     # 프롬프트를 생성합니다.
     prompt = load_prompt("prompts/pdf-rag.yaml", encoding="utf-8")

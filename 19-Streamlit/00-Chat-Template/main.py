@@ -9,15 +9,18 @@ from langchain_core.prompts import load_prompt
 st.set_page_config(page_title="나만의 ChatGPT 💬", page_icon="💬")
 st.title("나만의 ChatGPT 💬")
 
+# 대화 기록을 저장하기 위한 용도로 생성
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
 
+# 대화 이력 출력
 def print_history():
     for msg in st.session_state["messages"]:
         st.chat_message(msg.role).write(msg.content)
 
 
+# session_state에 새로운 메시지를 추가
 def add_history(role, content):
     st.session_state["messages"].append(ChatMessage(role=role, content=content))
 
@@ -44,7 +47,7 @@ with st.sidebar:
     user_selected_apply_btn = tab2.button("프롬프트 적용", key="apply2")
     if user_selected_apply_btn:
         tab2.markdown(f"✅ 프롬프트가 적용되었습니다")
-        prompt = load_prompt(f"prompts/{user_selected_prompt}.yaml", encoding="utf8")
+         
         st.session_state["chain"] = create_chain(prompt, "gpt-3.5-turbo")
 
 if clear_btn:
@@ -61,8 +64,10 @@ if "chain" not in st.session_state:
 
 if user_input := st.chat_input():
     add_history("user", user_input)
-    st.chat_message("user").write(user_input)
+    st.chat_message("user").write(user_input)  # 사용자 입력
+
     with st.chat_message("assistant"):
+        # 빈 공간(컨테이너)을 만들어서, 여기에 토큰을 스트리밍 출력한다.
         chat_container = st.empty()
 
         stream_response = st.session_state["chain"].stream(

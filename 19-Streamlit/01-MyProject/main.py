@@ -24,7 +24,7 @@ with st.sidebar:
 
     prompt_files = glob.glob("prompts/*.yaml")
     selected_prompt = st.selectbox("프롬프트를 선택해 주세요", prompt_files, index=0)
-    task_input = st.text_input("TASK 입력", "")
+    task_input = st.text_input("TASK 입력", "")  # 블로그 글 작성
 
 
 # 이전 대화를 출력
@@ -48,7 +48,7 @@ def create_chain(prompt_filepath, task=""):
         prompt = prompt.partial(task=task)
 
     # GPT
-    llm = ChatOpenAI(model_name="gpt-4o", temperature=0)
+    llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0)
 
     # 출력 파서
     output_parser = StrOutputParser()
