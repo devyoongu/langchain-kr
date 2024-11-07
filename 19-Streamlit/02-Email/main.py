@@ -1,35 +1,36 @@
+import os
+from dotenv import load_dotenv
 import streamlit as st
 from langchain_core.messages.chat import ChatMessage
-from langchain_openai import ChatOpenAI
+from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_teddynote.prompts import load_prompt
-from dotenv import load_dotenv
-import glob
-from langchain_openai import ChatOpenAI
 from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_core.output_parsers import PydanticOutputParser
-from langchain_core.prompts import PromptTemplate
-import os
+from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SerpAPIWrapper
+from langchain_teddynote.prompts import load_prompt
+
+
+# 검색을 위한 API KEY 설정
+os.environ["SERPAPI_API_KEY"] = (
+    "e76de14ee240e0051ed8bb05d5db568dd1dc9cfcaa2b51fd83613829a85bf244"
+)
+
+
+# 이메일 본문으로부터 주요 엔티티 추출
+class EmailSummary(BaseModel):
+    person: str = Field(description="메일을 보낸 사람")
+    company: str = Field(description="메일을 보낸 사람의 회사 정보")
+    email: str = Field(description="메일을 보낸 사람의 이메일 주소")
+    subject: str = Field(description="메일 제목")
+    summary: str = Field(description="메일 본문을 요약한 텍스트")
+    date: str = Field(description="메일 본문에 언급된 미팅 날짜와 시간")
 
 
 # API KEY 정보로드
 load_dotenv()
 
-st.title("나만의 Email 요약 챗GPT💬")
-
-os.environ["SERPAPI_API_KEY"] = (
-    "ad0069e2c4bf1b7160774cd361ba2e9d9de33566b4d5c42769b43cb6554efd1c"
-)
-
-
-class EmailSummary(BaseModel):
-    person: str = Field(description="메일을 보낸 사람")
-    email: str = Field(description="메일을 보낸 사람의 이메일 주소")
-    company: str = Field(description="메일을 보낸 사람의 회사")
-    subject: str = Field(description="메일 제목")
-    summary: str = Field(description="메일 본문을 요약한 텍스트")
-    date: str = Field(description="메일 본문에 언급된 미팅 날짜와 시간")
+st.title("Email 요약기 💬")
 
 
 # 처음 1번만 실행하기 위한 코드
@@ -41,9 +42,6 @@ if "messages" not in st.session_state:
 with st.sidebar:
     # 초기화 버튼 생성
     clear_btn = st.button("대화 초기화")
-
-    prompt_files = glob.glob("prompts/*.yaml")
-    task_input = st.text_input("TASK 입력", "")
 
 
 # 이전 대화를 출력
@@ -57,22 +55,22 @@ def add_message(role, message):
     st.session_state["messages"].append(ChatMessage(role=role, content=message))
 
 
-# email 내용을 EmailSummary로 파싱
+# 체인 생성
 def create_email_parsing_chain():
-
+    # PydanticOutputParser 생성
     output_parser = PydanticOutputParser(pydantic_object=EmailSummary)
 
     prompt = PromptTemplate.from_template(
         """
     You are a helpful assistant. Please answer the following questions in KOREAN.
 
-    QUESTION:
+    #QUESTION:
     다음의 이메일 내용 중에서 주요 내용을 추출해 주세요.
 
-    EMAIL CONVERSATION:
+    #EMAIL CONVERSATION:
     {email_conversation}
 
-    FORMAT:
+    #FORMAT:
     {format}
     """
     )
@@ -80,24 +78,20 @@ def create_email_parsing_chain():
     # format 에 PydanticOutputParser의 부분 포맷팅(partial) 추가
     prompt = prompt.partial(format=output_parser.get_format_instructions())
 
-    # GPT
-    llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0)
-
     # 체인 생성
-    chain = prompt | llm | output_parser
+    chain = prompt | ChatOpenAI(model="gpt-4-turbo") | output_parser
 
     return chain
 
 
-# email.yml 형태로 파싱
 def create_report_chain():
-    report_prompt = load_prompt("prompts/email.yaml", encoding="utf-8")
+    prompt = load_prompt("prompts/email.yaml", encoding="utf-8")
 
+    # 출력 파서
     output_parser = StrOutputParser()
 
-    llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0)
-
-    chain = report_prompt | llm | output_parser
+    # 체인 생성
+    chain = prompt | ChatOpenAI(model="gpt-4-turbo") | output_parser
 
     return chain
 
@@ -116,28 +110,21 @@ user_input = st.chat_input("궁금한 내용을 물어보세요!")
 if user_input:
     # 사용자의 입력
     st.chat_message("user").write(user_input)
-    # 1) email 을 파싱하는 chain 을 생성 및 실행
+
+    # 1) 이메일을 파싱하는 chain 을 생성
     email_chain = create_email_parsing_chain()
-    # EmailSummary class 형태로 저장
+    # email 에서 주요 정보를 추출하는 체인을 실행
     answer = email_chain.invoke({"email_conversation": user_input})
 
-    # 2) 보낸 사람의 추가 정보수집(검색)
-    params = {
-        "engine": "google",
-        "gl": "kr",
-        "hl": "ko",
-    }  # 검색 파라미터 설정
+    # 2) 보낸 사람의 추가 정보 수집(검색)
+    params = {"engine": "google", "gl": "kr", "hl": "ko", "num": "3"}  # 검색 파라미터
     search = SerpAPIWrapper(params=params)  # 검색 객체 생성
-    search_query = f"{answer.person} {answer.company} {answer.email}"
-    search_result = search.run(search_query)
-    search_result = eval(search_result)
+    search_query = f"{answer.person} {answer.company} {answer.email}"  # 검색 쿼리
+    search_result = search.run(search_query)  # 검색 실행
+    search_result = eval(search_result)  # list 형태로 변환
 
-    if isinstance(search_result, list):
-        search_result_string = " ".join(search_result)
-    elif isinstance(search_result, str):
-        search_result_string = search_result
-    else:
-        search_result_string = str(search_result)
+    # 검색 결과(합치기)
+    search_result_string = "\n".join(search_result)
 
     # 3) 이메일 요약 리포트 생성
     report_chain = create_report_chain()
