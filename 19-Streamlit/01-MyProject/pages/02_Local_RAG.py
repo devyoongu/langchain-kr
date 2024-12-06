@@ -17,7 +17,7 @@ from retriever import create_retriever
 load_dotenv()
 
 # 프로젝트 이름을 입력합니다.
-logging.langsmith("[Project] PDF RAG")
+logging.langsmith("[Project] PDF SQL RAG")
 
 # 캐시 디렉토리 생성
 if not os.path.exists(".cache"):
@@ -50,7 +50,7 @@ with st.sidebar:
     uploaded_file = st.file_uploader("파일 업로드", type=["pdf"])
 
     # 모델 선택 메뉴
-    selected_model = st.selectbox("LLM 선택", ["xionic", "ollama"], index=0)
+    selected_model = st.selectbox("LLM 선택", ["ollama", "xionic"], index=0)
 
 
 # 이전 대화를 출력
@@ -76,31 +76,22 @@ def embed_file(file):
     return create_retriever(file_path)
 
 
+# retriever 를 통해 검색된 document_list는 메타정보까지 모두 포함되어 있기 때문에 format_doc을 체이닝으로 추가하여 content 내용만 연결된 String 값으로 리턴
+# 불필요한 메터정보를 제외한 content 내용만 붙여서 yaml 템플릿의 context에 넣기 좋기 변환해주는 역할
 def format_doc(document_list):
     return "\n\n".join([doc.page_content for doc in document_list])
 
 
 # 체인 생성
-def create_chain(retriever, model_name="xionic"):
+def create_chain(retriever, model_name="ollama"):
+    print("INFO: Using 'ollama' model configuration.")
+
     # 단계 6: 프롬프트 생성(Create Prompt)
-    # 프롬프트를 생성합니다.
-    if model_name == "xionic":
-        # 단계 6: 프롬프트 생성(Create Prompt)
-        prompt = load_prompt("prompts/pdf-rag-xionic.yaml", encoding="utf-8")
+    prompt = load_prompt("prompts/sql-generator.yaml", encoding="utf-8")
 
-        # 단계 7: 언어모델(LLM) 생성
-        llm = ChatOpenAI(
-            model_name="xionic-1-72b-20240610",
-            base_url="https://sionic.chat/v1/",
-            api_key="934c4bbc-c384-4bea-af82-1450d7f8128d",
-        )
-    elif model_name == "ollama":
-        # 단계 6: 프롬프트 생성(Create Prompt)
-        prompt = load_prompt("prompts/pdf-rag-ollama.yaml", encoding="utf-8")
-
-        # 단계 7: 언어모델(LLM) 생성
-        # Ollama 모델을 불러옵니다.
-        llm = ChatOllama(model="EEVE-Korean-10.8B:latest", temperature=0)
+    # 단계 7: 언어모델(LLM) 생성
+    # Ollama 모델을 불러옵니다.
+    llm = ChatOllama(model="EEVE-Korean-10.8B:latest", temperature=0)
 
     # 단계 8: 체인(Chain) 생성
     chain = (

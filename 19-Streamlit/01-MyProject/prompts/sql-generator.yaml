@@ -1,0 +1,14 @@
+_type: "prompt"
+template: |
+  information 으로 넘어오는 mysql db 스키마 정보를 참고해서 사용자의 질문을 SQL 쿼리로 변경해줘
+  무조건 실행 가능한 sql만 리턴을 하는거야
+  
+  <information>
+  {context} 
+  </information>
+
+  #Question: 
+  {question}
+
+  #Answer:
+input_variables: ["question", "context"]
