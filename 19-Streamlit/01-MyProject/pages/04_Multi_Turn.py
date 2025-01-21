@@ -75,7 +75,7 @@ def get_session_history(session_ids):
 
 
 # 체인 생성
-def create_chain(model_name="gpt-4o"):
+def create_chain(model_name="gpt-4o-mini"):
 
     # 프롬프트 정의
     prompt = ChatPromptTemplate.from_messages(
@@ -91,7 +91,7 @@ def create_chain(model_name="gpt-4o"):
     )
 
     # llm 생성
-    llm = ChatOpenAI(model_name="gpt-4o")
+    llm = ChatOpenAI(model_name="gpt-4o-mini")
 
     # 일반 Chain 생성
     chain = prompt | llm | StrOutputParser()
